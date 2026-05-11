@@ -1,0 +1,88 @@
+    // ... 기존 코드 상단 동일 ...
+
+    function createFish(specificLetter = null) {
+        const fish = document.createElement('div');
+        fish.className = 'fish';
+        
+        // 특정 글자가 지정되면 그 글자로, 아니면 랜덤으로 생성
+        const idx = Math.floor(Math.random() * alphabet.length);
+        let letterSource = specificLetter ? specificLetter : alphabet[idx];
+        
+        let displayLetter = "";
+        if (stage === 1) displayLetter = letterSource.toUpperCase();
+        else if (stage === 2) displayLetter = letterSource.toLowerCase();
+        else displayLetter = Math.random() > 0.5 ? letterSource.toUpperCase() : letterSource.toLowerCase();
+
+        fish.innerHTML = `<span class="fish-body">🐟</span><span class="letter">${displayLetter}</span>`;
+        // 표시된 글자를 추적하기 위한 데이터 속성 추가
+        fish.dataset.letter = displayLetter.toUpperCase();
+
+        let x = Math.random() * (window.innerWidth - 100);
+        let y = 150 + Math.random() * (window.innerHeight - 250);
+        let dx = (Math.random() - 0.5) * (2 + stage);
+        let dy = (Math.random() - 0.5) * (2 + stage);
+
+        fish.style.left = x + 'px';
+        fish.style.top = y + 'px';
+
+        fish.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            if (fish.dataset.letter === alphabet[currentTargetIndex]) {
+                let plusScore = stage === 1 ? 10 : (stage === 2 ? 20 : 30);
+                score += plusScore;
+                document.getElementById('score').innerText = score;
+
+                if (score >= 100 && stage === 1) { stage = 2; document.getElementById('stage-info').innerText = "2단계: 소문자"; }
+                else if (score >= 300 && stage === 2) { stage = 3; document.getElementById('stage-info').innerText = "3단계: 혼합"; }
+                
+                fish.remove();
+                setNewTarget();
+                // 물고기 숫자가 줄어들지 않게 새로 생성
+                createFish();
+            } else {
+                hearts--;
+                updateHearts();
+                fish.style.transform = "scale(0.8)";
+                setTimeout(() => fish.style.transform = "scale(1)", 200);
+            }
+        });
+
+        container.appendChild(fish);
+
+        function move() {
+            if (hearts <= 0) return;
+            x += dx; y += dy;
+            if (x < 0 || x > window.innerWidth - 100) dx *= -1;
+            if (y < 120 || y > window.innerHeight - 100) dy *= -1;
+            fish.style.left = x + 'px';
+            fish.style.top = y + 'px';
+            requestAnimationFrame(move);
+        }
+        move();
+    }
+
+    function setNewTarget() {
+        currentTargetIndex = Math.floor(Math.random() * alphabet.length);
+        const targetChar = alphabet[currentTargetIndex];
+        
+        // 중요: 화면에 정답 물고기가 있는지 확인하고, 없으면 한 마리를 강제로 만듭니다.
+        const existingFish = Array.from(document.querySelectorAll('.fish'));
+        const hasTarget = existingFish.some(f => f.dataset.letter === targetChar);
+        
+        if (!hasTarget && existingFish.length > 0) {
+            // 기존 물고기 중 하나를 정답 물고기로 변신시키거나 새로 하나 만듭니다.
+            createFish(targetChar); 
+        }
+
+        const isKor = Math.random() > 0.5;
+        const targetDisplay = document.getElementById('target-letter');
+        
+        if (isKor) {
+            targetDisplay.innerText = korName[currentTargetIndex];
+        } else {
+            let letter = targetChar;
+            if (stage === 2) letter = letter.toLowerCase();
+            if (stage === 3) letter = Math.random() > 0.5 ? letter : letter.toLowerCase();
+            targetDisplay.innerText = letter;
+        }
+    }
