@@ -1,61 +1,164 @@
-    // ... 기존 코드 상단 동일 ...
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>알파벳 낚시 왕!</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #e3f2fd; font-family: 'Nanum Gothic', sans-serif; touch-action: none; }
+        #ui-layer { position: fixed; top: 0; left: 0; width: 100%; padding: 15px; display: flex; justify-content: space-between; align-items: center; z-index: 100; pointer-events: none; }
+        .info-box { background: white; padding: 10px 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); pointer-events: auto; }
+        #heart-container { color: #ff5252; font-size: 24px; }
+        #target-box { text-align: center; border: 4px solid #1976d2; min-width: 140px; position: relative; }
+        #target-letter { font-size: 45px; font-weight: bold; color: #1976d2; display: block; }
+        
+        /* 타임바 스타일 */
+        #time-bar-container { position: absolute; bottom: -15px; left: 0; width: 100%; height: 8px; background: #eee; border-radius: 4px; overflow: hidden; }
+        #time-bar { width: 100%; height: 100%; background: #ff9800; transition: width 0.1s linear; }
+
+        .fish { position: absolute; width: 100px; height: 80px; display: flex; justify-content: center; align-items: center; cursor: pointer; z-index: 10; }
+        .fish-body { font-size: 70px; position: absolute; }
+        .letter { position: relative; z-index: 11; font-size: 32px; font-weight: bold; color: #333; }
+
+        /* 결과 및 입장 창 */
+        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; z-index: 1000; }
+        .card { background: white; color: #333; padding: 40px; border-radius: 25px; text-align: center; width: 300px; }
+        input { width: 80%; padding: 10px; font-size: 18px; margin: 15px 0; border: 2px solid #ddd; border-radius: 10px; text-align: center; }
+        button { padding: 12px 25px; font-size: 18px; border-radius: 10px; border: none; cursor: pointer; background: #1976d2; color: white; font-weight: bold; }
+        
+        .rank-list { text-align: left; margin: 15px 0; font-size: 14px; border-top: 1px solid #eee; padding-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="ui-layer">
+    <div class="info-box">
+        <div id="user-display">선생님</div>
+        <div>점수: <span id="score">0</span></div>
+    </div>
+    <div class="info-box" id="target-box">
+        <span id="target-letter">A</span>
+        <div id="time-bar-container"><div id="time-bar"></div></div>
+    </div>
+    <div class="info-box" id="heart-container">❤️❤️❤️❤️❤️</div>
+</div>
+
+<div id="game-container"></div>
+
+<!-- 이름 입력 및 결과 창 -->
+<div id="overlay">
+    <div class="card" id="start-card">
+        <h2>반가워요!</h2>
+        <p>닉네임을 입력해주세요</p>
+        <input type="text" id="nickname-input" placeholder="이름" maxlength="8">
+        <button onclick="startGame()">게임 시작!</button>
+    </div>
+    
+    <div class="card" id="result-card" style="display:none;">
+        <h2 id="result-title">게임 종료!</h2>
+        <p>내 점수: <span id="final-score" style="color:#1976d2; font-weight:bold;">0</span>점</p>
+        <div class="rank-list" id="rank-display"></div>
+        <button onclick="location.reload()">다시 하기</button>
+    </div>
+</div>
+
+<script>
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+    const korName = ["에이", "비", "씨", "디", "이", "에프", "지", "에이치", "아이", "제이", "케이", "엘", "엠", "엔", "오", "피", "큐", "알", "에스", "티", "유", "브이", "더블유", "엑스", "와이", "제트"];
+    
+    let score = 0, hearts = 5, stage = 1, nickname = "", timeLeft = 7.0, timerInterval;
+    let currentTargetIndex = 0;
+    const container = document.getElementById('game-container');
+
+    function startGame() {
+        nickname = document.getElementById('nickname-input').value || "무명낚시꾼";
+        document.getElementById('user-display').innerText = nickname;
+        document.getElementById('start-card').style.display = 'none';
+        document.getElementById('overlay').style.display = 'none';
+        
+        setNewTarget();
+        for(let i=0; i<12; i++) createFish();
+        startTimer();
+    }
+
+    function startTimer() {
+        clearInterval(timerInterval);
+        timeLeft = 7.0;
+        const timeBar = document.getElementById('time-bar');
+        
+        timerInterval = setInterval(() => {
+            timeLeft -= 0.1;
+            timeBar.style.width = (timeLeft / 7 * 100) + "%";
+            
+            if (timeLeft <= 0) {
+                hearts--;
+                updateHearts();
+                if (hearts > 0) setNewTarget();
+            }
+        }, 100);
+    }
+
+    function updateHearts() {
+        document.getElementById('heart-container').innerText = "❤️".repeat(hearts) + "🖤".repeat(5-hearts);
+        if (hearts <= 0) endGame();
+    }
+
+    function endGame() {
+        clearInterval(timerInterval);
+        document.getElementById('overlay').style.display = 'flex';
+        document.getElementById('result-card').style.display = 'block';
+        document.getElementById('final-score').innerText = score;
+        
+        // 점수 저장 로직
+        let ranks = JSON.parse(localStorage.getItem('alphabetRanks') || "[]");
+        ranks.push({name: nickname, score: score});
+        ranks.sort((a, b) => b.score - a.score);
+        ranks = ranks.slice(0, 5); // 상위 5명만 저장
+        localStorage.setItem('alphabetRanks', JSON.stringify(ranks));
+        
+        document.getElementById('rank-display').innerHTML = "<b>🏆 명예의 전당</b><br>" + 
+            ranks.map((r, i) => `${i+1}위. ${r.name}: ${r.score}점`).join('<br>');
+    }
 
     function createFish(specificLetter = null) {
         const fish = document.createElement('div');
         fish.className = 'fish';
-        
-        // 특정 글자가 지정되면 그 글자로, 아니면 랜덤으로 생성
         const idx = Math.floor(Math.random() * alphabet.length);
-        let letterSource = specificLetter ? specificLetter : alphabet[idx];
-        
-        let displayLetter = "";
-        if (stage === 1) displayLetter = letterSource.toUpperCase();
-        else if (stage === 2) displayLetter = letterSource.toLowerCase();
-        else displayLetter = Math.random() > 0.5 ? letterSource.toUpperCase() : letterSource.toLowerCase();
+        let letterSource = specificLetter || alphabet[idx];
+        let displayLetter = (stage === 1) ? letterSource : (stage === 2 ? letterSource.toLowerCase() : (Math.random() > 0.5 ? letterSource : letterSource.toLowerCase()));
 
         fish.innerHTML = `<span class="fish-body">🐟</span><span class="letter">${displayLetter}</span>`;
-        // 표시된 글자를 추적하기 위한 데이터 속성 추가
         fish.dataset.letter = displayLetter.toUpperCase();
 
         let x = Math.random() * (window.innerWidth - 100);
         let y = 150 + Math.random() * (window.innerHeight - 250);
-        let dx = (Math.random() - 0.5) * (2 + stage);
-        let dy = (Math.random() - 0.5) * (2 + stage);
+        let dx = (Math.random() - 0.5) * (2 + stage), dy = (Math.random() - 0.5) * (2 + stage);
 
-        fish.style.left = x + 'px';
-        fish.style.top = y + 'px';
-
+        fish.style.left = x + 'px'; fish.style.top = y + 'px';
+        
         fish.addEventListener('pointerdown', (e) => {
-            e.preventDefault();
+            if (hearts <= 0) return;
             if (fish.dataset.letter === alphabet[currentTargetIndex]) {
-                let plusScore = stage === 1 ? 10 : (stage === 2 ? 20 : 30);
-                score += plusScore;
+                score += (stage * 10);
                 document.getElementById('score').innerText = score;
-
-                if (score >= 100 && stage === 1) { stage = 2; document.getElementById('stage-info').innerText = "2단계: 소문자"; }
-                else if (score >= 300 && stage === 2) { stage = 3; document.getElementById('stage-info').innerText = "3단계: 혼합"; }
-                
+                if (score >= 100 && stage === 1) stage = 2;
+                else if (score >= 300 && stage === 2) stage = 3;
                 fish.remove();
                 setNewTarget();
-                // 물고기 숫자가 줄어들지 않게 새로 생성
                 createFish();
             } else {
                 hearts--;
                 updateHearts();
-                fish.style.transform = "scale(0.8)";
-                setTimeout(() => fish.style.transform = "scale(1)", 200);
             }
         });
 
         container.appendChild(fish);
-
         function move() {
             if (hearts <= 0) return;
             x += dx; y += dy;
             if (x < 0 || x > window.innerWidth - 100) dx *= -1;
             if (y < 120 || y > window.innerHeight - 100) dy *= -1;
-            fish.style.left = x + 'px';
-            fish.style.top = y + 'px';
+            fish.style.left = x + 'px'; fish.style.top = y + 'px';
             requestAnimationFrame(move);
         }
         move();
@@ -65,24 +168,17 @@
         currentTargetIndex = Math.floor(Math.random() * alphabet.length);
         const targetChar = alphabet[currentTargetIndex];
         
-        // 중요: 화면에 정답 물고기가 있는지 확인하고, 없으면 한 마리를 강제로 만듭니다.
-        const existingFish = Array.from(document.querySelectorAll('.fish'));
-        const hasTarget = existingFish.some(f => f.dataset.letter === targetChar);
-        
-        if (!hasTarget && existingFish.length > 0) {
-            // 기존 물고기 중 하나를 정답 물고기로 변신시키거나 새로 하나 만듭니다.
-            createFish(targetChar); 
-        }
+        // 타겟 물고기 보장 로직
+        const fishes = Array.from(document.querySelectorAll('.fish'));
+        if (!fishes.some(f => f.dataset.letter === targetChar) && fishes.length > 0) createFish(targetChar);
 
         const isKor = Math.random() > 0.5;
-        const targetDisplay = document.getElementById('target-letter');
+        const display = document.getElementById('target-letter');
+        if (isKor) display.innerText = korName[currentTargetIndex];
+        else display.innerText = (stage === 2) ? targetChar.toLowerCase() : (stage === 3 && Math.random() > 0.5 ? targetChar.toLowerCase() : targetChar);
         
-        if (isKor) {
-            targetDisplay.innerText = korName[currentTargetIndex];
-        } else {
-            let letter = targetChar;
-            if (stage === 2) letter = letter.toLowerCase();
-            if (stage === 3) letter = Math.random() > 0.5 ? letter : letter.toLowerCase();
-            targetDisplay.innerText = letter;
-        }
+        startTimer(); // 타겟 바뀔 때마다 타이머 리셋
     }
+</script>
+</body>
+</html>
