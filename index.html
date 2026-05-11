@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>알파벳 낚시 게임</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #e3f2fd; font-family: 'Nanum Gothic', sans-serif; touch-action: none; }
+        #ui-layer { position: fixed; top: 0; left: 0; width: 100%; padding: 15px; display: flex; justify-content: space-between; align-items: center; z-index: 100; pointer-events: none; }
+        .info-box { background: white; padding: 10px 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); pointer-events: auto; }
+        #heart-container { color: #ff5252; font-size: 24px; }
+        #target-box { text-align: center; border: 4px solid #1976d2; min-width: 120px; }
+        #target-letter { font-size: 40px; font-weight: bold; color: #1976d2; display: block; }
+        #stage-info { font-weight: bold; color: #555; }
+
+        .fish {
+            position: absolute; width: 100px; height: 80px;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; transition: transform 0.2s; z-index: 10;
+        }
+        .fish-body { font-size: 70px; position: absolute; }
+        .letter { position: relative; z-index: 11; font-size: 30px; font-weight: bold; color: #333; margin-top: -5px; }
+
+        /* 결과 창 */
+        #overlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.9); display: none; flex-direction: column;
+            justify-content: center; align-items: center; color: white; z-index: 1000; 
+        }
+        .result-card { background: white; color: #333; padding: 30px; border-radius: 20px; text-align: center; }
+        button { padding: 15px 30px; font-size: 20px; border-radius: 10px; border: none; cursor: pointer; background: #4caf50; color: white; margin-top: 20px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="ui-layer">
+    <div class="info-box">
+        <div id="stage-info">1단계: 대문자</div>
+        <div>점수: <span id="score">0</span></div>
+    </div>
+    <div class="info-box" id="target-box">
+        <span style="font-size: 14px;">찾으세요!</span>
+        <span id="target-letter">A</span>
+    </div>
+    <div class="info-box" id="heart-container">❤️❤️❤️❤️❤️</div>
+</div>
+
+<div id="game-container"></div>
+
+<div id="overlay">
+    <div class="result-card">
+        <h1 id="result-msg">게임 종료!</h1>
+        <p style="font-size: 20px;">이번 점수: <span id="final-score" style="font-weight: bold; color: #1976d2;">0</span>점</p>
+        <p style="font-size: 18px;">🏆 최고 기록: <span id="best-score" style="font-weight: bold; color: #ff9800;">0</span>점</p>
+        <button onclick="location.reload()">다시 하기</button>
+    </div>
+</div>
+
+<script>
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+    const korName = ["에이", "비", "씨", "디", "이", "에프", "지", "에이치", "아이", "제이", "케이", "엘", "엠", "엔", "오", "피", "큐", "알", "에스", "티", "유", "브이", "더블유", "엑스", "와이", "제트"];
+    
+    let score = 0;
+    let hearts = 5;
+    let stage = 1;
+    let currentTargetIndex = 0;
+    const container = document.getElementById('game-container');
+
+    function updateHearts() {
+        document.getElementById('heart-container').innerText = "❤️".repeat(hearts) + "🖤".repeat(5-hearts);
+        if (hearts <= 0) endGame();
+    }
+
+    function endGame() {
+        const bestScore = localStorage.getItem('bestScore') || 0;
+        if (score > bestScore) {
+            localStorage.setItem('bestScore', score);
+        }
+        document.getElementById('final-score').innerText = score;
+        document.getElementById('best-score').innerText = localStorage.getItem('bestScore');
+        document.getElementById('overlay').style.display = 'flex';
+    }
+
+    function createFish() {
+        const fish = document.createElement('div');
+        fish.className = 'fish';
+        
+        const idx = Math.floor(Math.random() * alphabet.length);
+        let displayLetter = "";
+        if (stage === 1) displayLetter = alphabet[idx];
+        else if (stage === 2) displayLetter = alphabet[idx].toLowerCase();
+        else displayLetter = Math.random() > 0.5 ? alphabet[idx] : alphabet[idx].toLowerCase();
+
+        fish.innerHTML = `<span class="fish-body">🐟</span><span class="letter">${displayLetter}</span>`;
+
+        let x = Math.random() * (window.innerWidth - 100);
+        let y = 150 + Math.random() * (window.innerHeight - 250);
+        let dx = (Math.random() - 0.5) * (2 + stage); // 단계별로 조금씩 빨라짐
+        let dy = (Math.random() - 0.5) * (2 + stage);
+
+        fish.style.left = x + 'px';
+        fish.style.top = y + 'px';
+
+        fish.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            if (displayLetter.toUpperCase() === alphabet[currentTargetIndex]) {
+                // 단계별 점수 차등 적용
+                let plusScore = stage === 1 ? 10 : (stage === 2 ? 20 : 30);
+                score += plusScore;
+                document.getElementById('score').innerText = score;
+
+                // 단계 상승 (100점 단위)
+                if (score >= 100 && stage === 1) { stage = 2; document.getElementById('stage-info').innerText = "2단계: 소문자"; }
+                else if (score >= 300 && stage === 2) { stage = 3; document.getElementById('stage-info').innerText = "3단계: 혼합"; }
+                
+                fish.remove();
+                setNewTarget();
+                createFish();
+            } else {
+                hearts--;
+                updateHearts();
+                fish.style.transform = "scale(0.8)";
+                setTimeout(() => fish.style.transform = "scale(1)", 200);
+            }
+        });
+
+        container.appendChild(fish);
+
+        function move() {
+            if (hearts <= 0) return;
+            x += dx; y += dy;
+            if (x < 0 || x > window.innerWidth - 100) dx *= -1;
+            if (y < 120 || y > window.innerHeight - 100) dy *= -1;
+            fish.style.left = x + 'px';
+            fish.style.top = y + 'px';
+            requestAnimationFrame(move);
+        }
+        move();
+    }
+
+    function setNewTarget() {
+        currentTargetIndex = Math.floor(Math.random() * alphabet.length);
+        const isKor = Math.random() > 0.5;
+        const targetDisplay = document.getElementById('target-letter');
+        
+        if (isKor) {
+            targetDisplay.innerText = korName[currentTargetIndex];
+        } else {
+            let letter = alphabet[currentTargetIndex];
+            if (stage === 2) letter = letter.toLowerCase();
+            if (stage === 3) letter = Math.random() > 0.5 ? letter : letter.toLowerCase();
+            targetDisplay.innerText = letter;
+        }
+    }
+
+    // 초기 실행
+    setNewTarget();
+    for(let i=0; i<12; i++) createFish();
+</script>
+</body>
+</html>
