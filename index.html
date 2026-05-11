@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>알파벳-한글 매칭 게임</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #fdf2f8; font-family: 'Malgun Gothic', sans-serif; touch-action: none; }
+        canvas { display: block; background: #ffffff; margin: 0 auto; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+        #input-box { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; }
+        input { font-size: 30px; width: 200px; text-align: center; border: 3px solid #db2777; border-radius: 15px; outline: none; padding: 10px; color: #db2777; font-weight: bold; }
+        #guide-text { margin-bottom: 10px; color: #db2777; font-weight: bold; font-size: 18px; background: white; padding: 5px 15px; border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="input-box">
+        <div id="guide-text">준비하세요!</div>
+        <input type="text" id="answerInput" autofocus autocomplete="off" placeholder="입력 후 엔터">
+    </div>
+
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const input = document.getElementById("answerInput");
+    const guide = document.getElementById("guide-text");
+
+    canvas.width = 800;
+    canvas.height = 600;
+
+    let score = 0, lives = 5, level = 1;
+    let fallingChars = [];
+    let gameActive = true;
+
+    // 알파벳 데이터베이스 (A-Z)
+    const charDb = [
+        {upper: "A", lower: "a", kor: "에이"}, {upper: "B", lower: "b", kor: "비"},
+        {upper: "C", lower: "c", kor: "씨"}, {upper: "D", lower: "d", kor: "디"},
+        {upper: "E", lower: "e", kor: "이"}, {upper: "F", lower: "f", kor: "에프"},
+        {upper: "G", lower: "g", kor: "쥐"}, {upper: "H", lower: "h", kor: "에이치"},
+        {upper: "I", lower: "i", kor: "아이"}, {upper: "J", lower: "j", kor: "제이"},
+        {upper: "K", lower: "k", kor: "케이"}, {upper: "L", lower: "l", kor: "엘"},
+        {upper: "M", lower: "m", kor: "엠"}, {upper: "N", lower: "n", kor: "엔"},
+        {upper: "O", lower: "o", kor: "오"}, {upper: "P", lower: "p", kor: "피"},
+        {upper: "Q", lower: "q", kor: "큐"}, {upper: "R", lower: "r", kor: "알"},
+        {upper: "S", lower: "s", kor: "에스"}, {upper: "T", lower: "t", kor: "티"},
+        {upper: "U", lower: "u", kor: "유"}, {upper: "V", lower: "v", kor: "브이"},
+        {upper: "W", lower: "w", kor: "더블유"}, {upper: "X", lower: "x", kor: "엑스"},
+        {upper: "Y", lower: "y", kor: "와이"}, {upper: "Z", lower: "z", kor: "지"}
+    ];
+
+    function updateGuide() {
+        if(level === 1) guide.innerText = "1단계: 대문자를 보고 '한글 이름' 입력 (예: A -> 에이)";
+        else if(level === 2) guide.innerText = "2단계: 대문자를 보고 '대문자' 입력 (예: A -> A)";
+        else if(level === 3) guide.innerText = "3단계: 소문자를 보고 '한글 이름' 입력 (예: a -> 에이)";
+        else if(level === 4) guide.innerText = "4단계: 소문자를 보고 '소문자' 입력 (예: a -> a)";
+    }
+
+    function spawnChar() {
+        if (!gameActive) return;
+        const data = charDb[Math.floor(Math.random() * charDb.length)];
+        
+        let displayChar, answer;
+        if(level === 1) { displayChar = data.upper; answer = data.kor; }
+        else if(level === 2) { displayChar = data.upper; answer = data.upper; }
+        else if(level === 3) { displayChar = data.lower; answer = data.kor; }
+        else if(level === 4) { displayChar = data.lower; answer = data.lower; }
+
+        fallingChars.push({
+            display: displayChar,
+            answer: answer,
+            x: Math.random() * (canvas.width - 200) + 100,
+            y: 0,
+            color: `hsl(${Math.random() * 360}, 70%, 40%)`
+        });
+    }
+
+    input.addEventListener("keyup", (e) => {
+        if (e.key === "Enter") {
+            const val = input.value.trim();
+            let found = false;
+            for (let i = 0; i < fallingChars.length; i++) {
+                if (fallingChars[i].answer === val) {
+                    fallingChars.splice(i, 1);
+                    score += 10;
+                    found = true;
+                    // 50점마다 레벨업
+                    if (score > 0 && score % 50 === 0 && level < 4) {
+                        level++;
+                        updateGuide();
+                    }
+                    break;
+                }
+            }
+            input.value = "";
+        }
+    });
+
+    function update() {
+        if (!gameActive) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 목숨 표시 (원형 하트)
+        for (let i = 0; i < 5; i++) {
+            ctx.beginPath();
+            ctx.arc(40 + i * 40, 40, 15, 0, Math.PI * 2);
+            ctx.fillStyle = i < lives ? "#db2777" : "#ddd";
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        // 점수
+        ctx.fillStyle = "#333";
+        ctx.font = "bold 24px Arial";
+        ctx.textAlign = "right";
+        ctx.fillText(`SCORE: ${score} | LV.${level}`, canvas.width - 25, 45);
+
+        // 글자 그리기
+        ctx.textAlign = "center";
+        ctx.font = "bold 60px Arial";
+        for (let i = fallingChars.length - 1; i >= 0; i--) {
+            let obj = fallingChars[i];
+            obj.y += 0.8; // 속도를 매우 느리게 조절
+            
+            ctx.fillStyle = obj.color;
+            ctx.fillText(obj.display, obj.x, obj.y);
+
+            if (obj.y > canvas.height - 120) {
+                fallingChars.splice(i, 1);
+                lives--;
+                if (lives <= 0) gameActive = false;
+            }
+        }
+
+        if (gameActive) {
+            requestAnimationFrame(update);
+        } else {
+            ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#db2777";
+            ctx.font = "bold 60px Arial";
+            ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2);
+            ctx.fillStyle = "#333";
+            ctx.font = "bold 30px Arial";
+            ctx.fillText(`최종 점수: ${score}`, canvas.width / 2, canvas.height / 2 + 60);
+        }
+    }
+
+    updateGuide();
+    setInterval(spawnChar, 7000); // 7초마다 한 개씩
+    update();
+    input.focus();
+    document.addEventListener('touchstart', () => input.focus());
+</script>
+</body>
+</html>
